@@ -2,7 +2,7 @@ extends Node
 
 
 const Generator = preload("./generator.gd")
-const Util = preload("res://common/util.gd")
+const Util = preload("res://blocky_game/common/util.gd")
 const VoxelLibraryResource = preload("../blocks/voxel_library.tres")
 
 const _materials = [

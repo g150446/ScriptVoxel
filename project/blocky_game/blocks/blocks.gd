@@ -5,7 +5,7 @@
 extends Node
 
 const Block = preload("./block.gd")
-const Util = preload("res://common/util.gd")
+const Util = preload("res://blocky_game/common/util.gd")
 
 const ROTATION_TYPE_NONE = 0
 const ROTATION_TYPE_AXIAL = 1

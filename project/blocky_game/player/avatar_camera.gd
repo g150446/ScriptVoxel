@@ -1,6 +1,6 @@
 extends Node3D
 
-const Util = preload("res://common/util.gd")
+const Util = preload("res://blocky_game/common/util.gd")
 
 @export var sensitivity = 0.4
 @export var min_angle = -90

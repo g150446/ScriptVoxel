@@ -1,6 +1,6 @@
 
 const Blocks = preload("../blocks/blocks.gd")
-const Util = preload("res://common/util.gd")
+const Util = preload("res://blocky_game/common/util.gd")
 const WaterUpdater = preload("./../water.gd")
 
 

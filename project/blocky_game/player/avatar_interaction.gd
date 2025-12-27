@@ -1,6 +1,6 @@
 extends Node
 
-const Util = preload("res://common/util.gd")
+const Util = preload("res://blocky_game/common/util.gd")
 const Blocks = preload("../blocks/blocks.gd")
 const ItemDB = preload("../items/item_db.gd")
 const InventoryItem = preload("./inventory_item.gd")

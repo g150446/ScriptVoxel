@@ -1,6 +1,6 @@
 extends "../block.gd"
 
-const Util = preload("res://common/util.gd")
+const Util = preload("res://blocky_game/common/util.gd")
 const Blocks = preload("../blocks.gd")
 
 const _STRAIGHT = 0
