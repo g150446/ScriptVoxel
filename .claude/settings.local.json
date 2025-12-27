@@ -10,7 +10,12 @@
       "Bash(mkdir:*)",
       "Bash(rm:*)",
       "Bash(mv:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(git remote:*)",
+      "Bash(git remote add:*)",
+      "Bash(git rm:*)",
+      "Bash(gh repo edit:*)",
+      "Bash(gh repo view:*)"
     ]
   }
 }
