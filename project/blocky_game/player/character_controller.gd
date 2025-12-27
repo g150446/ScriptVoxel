@@ -11,6 +11,7 @@ var _velocity := Vector3()
 var _grounded := false
 var _head : Node3D = null
 var _box_mover := VoxelBoxMover.new()
+var input_enabled := true  # Can be disabled when editor is open
 
 
 func _ready():
@@ -26,23 +27,25 @@ func _physics_process(delta: float):
 	forward = Plane(Vector3(0, 1, 0), 0).project(forward)
 	var right = _head.get_transform().basis.x.normalized()
 	var motor = Vector3()
-	
-	if Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_Z) or Input.is_key_pressed(KEY_W):
-		motor -= forward
-	if Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
-		motor += forward
-	if Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_Q) or Input.is_key_pressed(KEY_A):
-		motor -= right
-	if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_D):
-		motor += right
-	
+
+	# Only process input if enabled (disabled when Python editor is open)
+	if input_enabled:
+		if Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_Z) or Input.is_key_pressed(KEY_W):
+			motor -= forward
+		if Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
+			motor += forward
+		if Input.is_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_Q) or Input.is_key_pressed(KEY_A):
+			motor -= right
+		if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_D):
+			motor += right
+
 	motor = motor.normalized() * speed
-	
+
 	_velocity.x = motor.x
 	_velocity.z = motor.z
 	_velocity.y -= gravity * delta
-	
-	if _grounded and Input.is_key_pressed(KEY_SPACE):
+
+	if input_enabled and _grounded and Input.is_key_pressed(KEY_SPACE):
 		_velocity.y = jump_force
 		_grounded = false
 	

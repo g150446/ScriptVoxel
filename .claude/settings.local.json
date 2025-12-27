@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(unzip:*)",
+      "Bash(xattr:*)",
+      "WebSearch",
+      "Bash(tree:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(mkdir:*)",
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(find:*)"
+    ]
+  }
+}

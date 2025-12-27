@@ -1,0 +1,51 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Texture2D" path="res://blocky_game/agent/black-and-white.png" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="mat"]
+albedo_texture = ExtResource("1")
+texture_filter = 0
+
+[sub_resource type="BoxMesh" id="head"]
+size = Vector3(0.45, 0.45, 0.45)
+
+[sub_resource type="BoxMesh" id="body"]
+size = Vector3(0.45, 0.675, 0.225)
+
+[sub_resource type="BoxMesh" id="arm"]
+size = Vector3(0.225, 0.675, 0.225)
+
+[sub_resource type="BoxMesh" id="leg"]
+size = Vector3(0.225, 0.675, 0.225)
+
+[node name="AgentVisual" type="Node3D"]
+
+[node name="Head" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+mesh = SubResource("head")
+surface_material_override/0 = SubResource("mat")
+
+[node name="Body" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.15, 0)
+mesh = SubResource("body")
+surface_material_override/0 = SubResource("mat")
+
+[node name="RightArm" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3375, 0.15, 0)
+mesh = SubResource("arm")
+surface_material_override/0 = SubResource("mat")
+
+[node name="LeftArm" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.3375, 0.15, 0)
+mesh = SubResource("arm")
+surface_material_override/0 = SubResource("mat")
+
+[node name="RightLeg" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.1125, -0.5, 0)
+mesh = SubResource("leg")
+surface_material_override/0 = SubResource("mat")
+
+[node name="LeftLeg" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.1125, -0.5, 0)
+mesh = SubResource("leg")
+surface_material_override/0 = SubResource("mat")

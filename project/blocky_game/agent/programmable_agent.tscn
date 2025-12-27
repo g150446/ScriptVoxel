@@ -1,0 +1,28 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://blocky_game/agent/agent_controller.gd" id="1"]
+[ext_resource type="Script" path="res://blocky_game/agent/agent_interaction.gd" id="2"]
+[ext_resource type="PackedScene" uid="uid://agent_visual" path="res://blocky_game/agent/agent_visual.tscn" id="3"]
+
+[node name="ProgrammableAgent" type="Node3D"]
+
+[node name="AgentController" type="Node3D" parent="."]
+script = ExtResource("1")
+speed = 5.0
+gravity = 9.8
+jump_force = 5.0
+
+[node name="AgentInteraction" type="Node" parent="."]
+script = ExtResource("2")
+
+[node name="AgentVisual" parent="." instance=ExtResource("3")]
+
+[node name="VoxelViewer" type="VoxelViewer" parent="."]
+view_distance = 128
+requires_collisions = true
+
+[node name="AgentAPI" type="Node" parent="."]
+script = "res://blocky_game/agent/agent_api.py"
+
+[node name="PythonExecutor" type="Node" parent="."]
+script = "res://blocky_game/agent/python_executor.py"
