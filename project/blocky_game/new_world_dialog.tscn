@@ -1,0 +1,93 @@
+[gd_scene load_steps=2 format=3 uid="uid://c3jx5w9k8n1lm"]
+
+[ext_resource type="Script" path="res://../project/blocky_game/new_world_dialog.gd" id="1_l4m7n"]
+
+[node name="NewWorldDialog" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_l4m7n")
+
+[node name="ColorRect" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.7)
+
+[node name="PanelContainer" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -150.0
+offset_right = 200.0
+offset_bottom = 150.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+text = "Create New World"
+horizontal_alignment = 1
+
+[node name="WorldNameLineEdit" type="LineEdit" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+placeholder_text = "World Name"
+
+[node name="SeedHBox" type="HBoxContainer" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Label2" type="Label" parent="PanelContainer/VBoxContainer/SeedHBox"]
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+text = "Seed:"
+
+[node name="SeedSpinBox" type="SpinBox" parent="PanelContainer/VBoxContainer/SeedHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 2147483647.0
+step = 1.0
+
+[node name="RandomSeedButton" type="Button" parent="PanelContainer/VBoxContainer/SeedHBox"]
+layout_mode = 2
+text = "🎲"
+
+[node name="SlotHBox" type="HBoxContainer" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="Label3" type="Label" parent="PanelContainer/VBoxContainer/SlotHBox"]
+custom_minimum_size = Vector2(60, 0)
+layout_mode = 2
+text = "Slot:"
+
+[node name="SlotSpinBox" type="SpinBox" parent="PanelContainer/VBoxContainer/SlotHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 1.0
+max_value = 9.0
+step = 1.0
+value = 1.0
+
+[node name="HBoxContainer" type="HBoxContainer" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+alignment = 1
+
+[node name="CreateButton" type="Button" parent="PanelContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Create"
+
+[node name="CancelButton" type="Button" parent="PanelContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+text = "Cancel"

@@ -12,31 +12,38 @@ const RandomTicks = preload("./random_ticks.gd")
 const WaterUpdater = preload("./water.gd")
 const ProgrammableAgentScene = preload("./agent/programmable_agent.tscn")
 const CodeEditorUIScene = preload("./agent/code_editor_ui.tscn")
+const WorldManager = preload("./world_manager.gd")
+const PauseMenuScene = preload("./pause_menu.tscn")
+const SaveLoadDialogScene = preload("./save_load_dialog.tscn")
 
 @onready var _light : DirectionalLight3D = $DirectionalLight3D
 @onready var _terrain : VoxelTerrain = $VoxelTerrain
 @onready var _characters_container : Node = $Players
 
-var _network_mode := NETWORK_MODE_SINGLEPLAYER
-var _ip := ""
-var _port := -1
-var _code_editor_ui : CanvasLayer = null
-var _open_editor_button : Button = null
+var _network_mode: int = NETWORK_MODE_SINGLEPLAYER
+var _ip: String = ""
+var _port: int = -1
+var _code_editor_ui: CanvasLayer = null
+var _open_editor_button: Button = null
+
+var _world_manager: WorldManager = null
+var _current_save_slot: int = 0
+var _world_name: String = ""
+var _pause_menu: Control = null
 
 # Initially needed because when running multiple instances in the editor, Godot is mixing up the
 # outputs of server and clients in the same output console...
 # 2025/05/01: had to prefix because Godot now has a Logger class
 class BG_Logger:
-	var prefix := ""
-	
+	var prefix: String = ""
+
 	func debug(msg: String):
 		print(prefix, msg)
 
 	func error(msg: String):
-		push_error(prefix, msg)
+		push_error(prefix + msg)
 
-
-var _logger := BG_Logger.new()
+var _logger: BG_Logger = BG_Logger.new()
 
 
 func get_terrain() -> VoxelTerrain:
@@ -60,34 +67,40 @@ func set_port(port: int):
 
 
 func _ready():
+	_world_manager = WorldManager.new()
+	add_child(_world_manager)
+	
+	if _network_mode == NETWORK_MODE_SINGLEPLAYER:
+		_setup_pause_menu()
+	
 	if _network_mode == NETWORK_MODE_HOST:
 		_logger.prefix = "Server: "
 		
 		# Configure multiplayer API as server
-		var peer := ENetMultiplayerPeer.new()
-		var err := peer.create_server(_port, 32, 0, 0, 0)
+		var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+		var err: Error = peer.create_server(_port, 32, 0, 0, 0)
 		if err != OK:
 			_logger.error(str("Failed to create server peer, error ", err))
 			return
-		var mp := get_tree().get_multiplayer()
+		var mp: MultiplayerAPI = get_tree().get_multiplayer()
 		mp.peer_connected.connect(_on_peer_connected)
 		mp.peer_disconnected.connect(_on_peer_disconnected)
 		mp.multiplayer_peer = peer
 
 		# Configure VoxelTerrain as server
-		var synchronizer := VoxelTerrainMultiplayerSynchronizer.new()
+		var synchronizer: VoxelTerrainMultiplayerSynchronizer = VoxelTerrainMultiplayerSynchronizer.new()
 		_terrain.add_child(synchronizer)
 
 	elif _network_mode == NETWORK_MODE_CLIENT:
 		_logger.prefix = "Client: "
 		
 		# Configure multiplayer API as client
-		var peer := ENetMultiplayerPeer.new()
-		var err := peer.create_client(_ip, _port, 0, 0, 0, 0)
+		var peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+		var err: Error = peer.create_client(_ip, _port, 0, 0, 0, 0)
 		if err != OK:
 			_logger.error(str("Failed to create client peer, error ", err))
 			return
-		var mp := get_tree().get_multiplayer()
+		var mp: MultiplayerAPI = get_tree().get_multiplayer()
 		mp.connected_to_server.connect(_on_connected_to_server)
 		mp.connection_failed.connect(_on_connection_failed)
 		mp.peer_connected.connect(_on_peer_connected)
@@ -96,14 +109,14 @@ func _ready():
 		mp.multiplayer_peer = peer
 
 		# Configure VoxelTerrain as client
-		var synchronizer := VoxelTerrainMultiplayerSynchronizer.new()
+		var synchronizer: VoxelTerrainMultiplayerSynchronizer = VoxelTerrainMultiplayerSynchronizer.new()
 		_terrain.add_child(synchronizer)
 		_terrain.stream = null
 
 	if _network_mode == NETWORK_MODE_HOST or _network_mode == NETWORK_MODE_SINGLEPLAYER:
 		add_child(RandomTicks.new())
-
-		var water_updater := WaterUpdater.new()
+	
+		var water_updater: WaterUpdater = WaterUpdater.new()
 		# Current code grabs this node by name, so must be named for now...
 		water_updater.name = "Water"
 		add_child(water_updater)
@@ -135,15 +148,15 @@ func _on_peer_connected(new_peer_id: int):
 		
 		# Send existing characters to the new peer
 		for i in _characters_container.get_child_count():
-			var character := _characters_container.get_child(i)
+			var character: Node3D = _characters_container.get_child(i)
 			if character != new_character:
 				# TODO This sucks, find a better way to get peer ID from character
-				var peer_id := character.name.to_int()
+				var peer_id: int = character.name.to_int()
 				_logger.debug(str("Sending remote character ", peer_id, " to ", new_peer_id))
 				rpc_id(new_peer_id, &"receive_remote_character", peer_id, character.position)
 		
 		# Send new character to other clients
-		var peers := get_tree().get_multiplayer().get_peers()
+		var peers: Array = get_tree().get_multiplayer().get_peers()
 		for peer_id in peers:
 			if peer_id != new_peer_id:
 				_logger.debug(str("Sending remote character ", peer_id, " to other ", new_peer_id))
@@ -153,9 +166,9 @@ func _on_peer_connected(new_peer_id: int):
 func _on_peer_disconnected(peer_id: int):
 	_logger.debug(str("Peer ", peer_id, " disconnected"))
 	# Remove character
-	var node_name = str(peer_id)
+	var node_name: String = str(peer_id)
 	if _characters_container.has_node(node_name):
-		var character = _characters_container.get_node(node_name)
+		var character: Node3D = _characters_container.get_node(node_name)
 		character.queue_free()
 	else:
 		_logger.debug(str("Character ", peer_id, " not found"))
@@ -167,18 +180,22 @@ func _on_server_disconnected():
 
 
 func _unhandled_input(event: InputEvent):
-	# TODO Make a pause menu with options?
 	if event is InputEventKey:
 		if event.pressed:
-			if event.keycode == KEY_L:
+			if event.keycode == KEY_ESCAPE:
+				_show_pause_menu()
+			elif event.keycode == KEY_L:
 				# Toggle shadows
 				_light.shadow_enabled = not _light.shadow_enabled
 			elif event.keycode == KEY_F4:
 				# Toggle Python code editor (singleplayer only)
 				_toggle_code_editor()
-#			if event.keycode == KEY_KP_0:
-#				# Force save
-#				_save_world()
+			elif event.keycode == KEY_F5:
+				# Quick save
+				quick_save()
+			elif event.keycode == KEY_F9:
+				# Quick load
+				quick_load()
 
 
 func _notification(what: int):
@@ -190,7 +207,125 @@ func _notification(what: int):
 
 
 func _save_world():
-	_terrain.save_modified_blocks()
+	if _current_save_slot == 0:
+		_terrain.save_modified_blocks()
+		return
+	
+	if _network_mode == NETWORK_MODE_CLIENT:
+		_logger.error("Cannot save world in multiplayer client mode")
+		return
+	
+	var world_data: Dictionary = _collect_world_data()
+	var err: Error = _world_manager.save_world(_current_save_slot, world_data)
+	if err != OK:
+		_logger.error(str("Failed to save world: ", error_string(err)))
+	else:
+		_logger.debug(str("World saved to slot ", _current_save_slot))
+
+
+func _collect_world_data() -> Dictionary:
+	var players_data: Array = []
+	
+	for i in _characters_container.get_child_count():
+		var character: Node3D = _characters_container.get_child(i)
+		var player_data: Dictionary = {
+			"id": int(character.name),
+			"position": {
+				"x": character.position.x,
+				"y": character.position.y,
+				"z": character.position.z
+			},
+			"rotation": {"y": character.rotation.y}
+		}
+		
+		if character.has_method("get_inventory"):
+			var inventory_data: Variant = character.get_inventory()
+			if inventory_data:
+				player_data["inventory"] = inventory_data
+		
+		players_data.append(player_data)
+	
+	var generator_seed: int = 0
+	var generator: VoxelGeneratorScript = _terrain.get_generator()
+	if generator and "set_world_seed" in generator:
+		if generator._heightmap_noise:
+			generator_seed = generator._heightmap_noise.seed
+	
+	var existing_data: Dictionary = {}
+	if _current_save_slot > 0:
+		existing_data = _world_manager.load_world(_current_save_slot)
+	
+	return {
+		"world_name": _world_name,
+		"generation": {
+			"seed": generator_seed,
+			"modified_blocks_file": ""
+		},
+		"players": players_data,
+		"game_state": {
+			"random_ticks_enabled": true,
+			"water_simulation_enabled": true
+		},
+		"playtime_seconds": existing_data.get("playtime_seconds", 0)
+	}
+
+
+func start_new_world(slot: int, world_name: String, seed: int):
+	_current_save_slot = slot
+	_world_name = world_name
+	
+	var generator: VoxelGeneratorScript = _terrain.get_generator()
+	if generator and "set_world_seed" in generator:
+		generator.set_world_seed(seed)
+	
+	_spawn_character(SERVER_PEER_ID, Vector3(0, 64, 0))
+
+func load_world_save(slot: int):
+	var world_data: Dictionary = _world_manager.load_world(slot)
+	if not world_data.has("world_name"):
+		_logger.error(str("Failed to load world from slot ", slot))
+		return
+	
+	_current_save_slot = slot
+	_world_name = world_data.get("world_name", "")
+	
+	var generator_seed: int = world_data.get("generation", {}).get("seed", 0)
+	var generator: VoxelGeneratorScript = _terrain.get_generator()
+	if generator and "set_world_seed" in generator:
+		generator.set_world_seed(generator_seed)
+	
+	for player_data in world_data.get("players", []):
+		var player_id: int = player_data.get("id", 1)
+		var pos: Vector3 = Vector3(
+			player_data.get("position", {}).get("x", 0),
+			player_data.get("position", {}).get("y", 64),
+			player_data.get("position", {}).get("z", 0)
+		)
+		var character: Node3D = _spawn_character(player_id, pos)
+		
+		if player_data.has("inventory"):
+			var inventory: Node = character.get_node_or_null("Inventory")
+			if inventory and inventory.has_method("clear"):
+				inventory.clear()
+			# TODO: Restore inventory items once inventory serialization is implemented
+	
+	_logger.debug(str("World loaded from slot ", slot))
+
+
+func quick_save():
+	if _current_save_slot == 0:
+		_logger.error("No save slot selected")
+		return
+	
+	_save_world()
+
+
+func quick_load():
+	if _current_save_slot == 0:
+		_logger.error("No save slot selected")
+		return
+	
+	load_world_save(_current_save_slot)
 
 
 func _spawn_character(peer_id: int, pos: Vector3) -> Node3D:
@@ -209,9 +344,9 @@ func _spawn_character(peer_id: int, pos: Vector3) -> Node3D:
 func _spawn_remote_character(peer_id: int, pos: Vector3) -> Node3D:
 	var node_name = str(peer_id)
 	if _characters_container.has_node(node_name):
-		_logger.debug(str("Remote character ", peer_id, " already created"))
+		_logger.error(str("Character ", peer_id, " already created"))
 		return null
-	var character := RemoteCharacterScene.instantiate()
+	var character: Node3D = RemoteCharacterScene.instantiate()
 	character.position = pos
 	character.name = str(peer_id)
 	if _network_mode == NETWORK_MODE_HOST:
@@ -219,7 +354,7 @@ func _spawn_remote_character(peer_id: int, pos: Vector3) -> Node3D:
 		# around each character. We'll also tell which peer ID it uses, so the terrain knows which
 		# peer to send the voxels to.
 		# TODO Make a specific scene?
-		var viewer := VoxelViewer.new()
+		var viewer: VoxelViewer = VoxelViewer.new()
 		viewer.view_distance = 128
 		viewer.requires_visuals = false
 		viewer.requires_collisions = false
@@ -377,14 +512,14 @@ func _toggle_code_editor():
 func _on_spawn_agent_requested():
 	"""Respawn the programmable agent at player position or default location"""
 	# Remove existing agent if any
-	var existing_agent = _characters_container.get_node_or_null("ProgrammableAgent")
+	var existing_agent: Node3D = _characters_container.get_node_or_null("ProgrammableAgent")
 	if existing_agent:
 		existing_agent.queue_free()
 		await get_tree().process_frame  # Wait for deletion
 
 	# Get player position or use default
-	var spawn_pos = Vector3(5, 64, 0)
-	var player = _characters_container.get_node_or_null("1")  # SERVER_PEER_ID
+	var spawn_pos: Vector3 = Vector3(5, 64, 0)
+	var player: Node3D = _characters_container.get_node_or_null("1")  # SERVER_PEER_ID
 	if player:
 		spawn_pos = player.global_position + Vector3(3, 0, 0)  # Spawn 3 blocks to the right
 
@@ -396,9 +531,9 @@ func _on_spawn_agent_requested():
 
 	# Reconnect to editor
 	if _code_editor_ui:
-		var agent = _characters_container.get_node_or_null("ProgrammableAgent")
+		var agent: Node3D = _characters_container.get_node_or_null("ProgrammableAgent")
 		if agent:
-			var agent_api = agent.get_node_or_null("AgentAPI")
+			var agent_api: Node = agent.get_node_or_null("AgentAPI")
 			if agent_api:
 				_code_editor_ui.set_agent_api(agent_api)
 				_logger.debug("Agent respawned and reconnected to editor")
@@ -406,3 +541,68 @@ func _on_spawn_agent_requested():
 				_logger.error("AgentAPI not found after spawning")
 		else:
 			_logger.error("ProgrammableAgent not found after spawning")
+
+
+func _show_pause_menu():
+	if _pause_menu == null:
+		_pause_menu = PauseMenuScene.instantiate()
+		add_child(_pause_menu)
+		_pause_menu.resume_requested.connect(_on_pause_resume)
+		_pause_menu.save_requested.connect(_on_pause_save)
+		_pause_menu.load_requested.connect(_on_pause_load)
+		_pause_menu.main_menu_requested.connect(_on_pause_main_menu)
+		_pause_menu.quit_requested.connect(_on_pause_quit)
+	
+	_pause_menu.show_menu()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	
+	var player: Node3D = _characters_container.get_node_or_null("1")
+	if player and "input_enabled" in player:
+		player.input_enabled = false
+
+
+func _on_pause_resume():
+	_pause_menu.hide_menu()
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	
+	var player: Node3D = _characters_container.get_node_or_null("1")
+	if player and "input_enabled" in player:
+		player.input_enabled = true
+
+
+func _on_pause_save():
+	if _current_save_slot > 0:
+		quick_save()
+	else:
+		push_warning("No save slot selected. Please save to a specific slot from the load menu.")
+
+
+func _on_pause_load():
+	var save_dialog: Control = SaveLoadDialogScene.instantiate()
+	add_child(save_dialog)
+	save_dialog.set_world_manager(_world_manager)
+	save_dialog.load_requested.connect(_on_load_dialog_load_requested)
+
+
+func _on_pause_main_menu():
+	get_tree().change_scene_to_file("res://../project/blocky_game/main.tscn")
+
+
+func _on_pause_quit():
+	get_tree().quit()
+
+
+func _on_load_dialog_load_requested(slot: int):
+	load_world_save(slot)
+
+
+func _setup_pause_menu():
+	if _network_mode == NETWORK_MODE_SINGLEPLAYER:
+		_pause_menu = PauseMenuScene.instantiate()
+		add_child(_pause_menu)
+		_pause_menu.resume_requested.connect(_on_pause_resume)
+		_pause_menu.save_requested.connect(_on_pause_save)
+		_pause_menu.load_requested.connect(_on_pause_load)
+		_pause_menu.main_menu_requested.connect(_on_pause_main_menu)
+		_pause_menu.quit_requested.connect(_on_pause_quit)
+		_pause_menu.visible = false

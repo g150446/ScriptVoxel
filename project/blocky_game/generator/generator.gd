@@ -31,28 +31,28 @@ const _moore_dirs: Array[Vector3i] = [
 ]
 
 
-var _tree_structures := []
+var _tree_structures: Array = []
 
-var _heightmap_min_y := int(HeightmapCurve.min_value)
-var _heightmap_max_y := int(HeightmapCurve.max_value)
-var _heightmap_range := 0
-var _heightmap_noise := FastNoiseLite.new()
-var _trees_min_y := 0
-var _trees_max_y := 0
+var _heightmap_min_y: int = int(HeightmapCurve.min_value)
+var _heightmap_max_y: int = int(HeightmapCurve.max_value)
+var _heightmap_range: int = 0
+var _heightmap_noise: FastNoiseLite = FastNoiseLite.new()
+var _trees_min_y: int = 0
+var _trees_max_y: int = 0
 
 
 func _init():
 	# TODO Even this must be based on a seed, but I'm lazy
-	var tree_generator = TreeGenerator.new()
+	var tree_generator: TreeGenerator = TreeGenerator.new()
 	tree_generator.log_type = LOG
 	tree_generator.leaves_type = LEAVES
 	for i in 16:
-		var s = tree_generator.generate()
+		var s: Structure = tree_generator.generate()
 		_tree_structures.append(s)
-
-	var tallest_tree_height = 0
+	
+	var tallest_tree_height: int = 0
 	for structure in _tree_structures:
-		var h = int(structure.voxels.get_size().y)
+		var h: int = int(structure.voxels.get_size().y)
 		if tallest_tree_height < h:
 			tallest_tree_height = h
 	_trees_min_y = _heightmap_min_y
@@ -77,11 +77,11 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, _unused_lo
 	# Saves from this demo used 8-bit, which is no longer the default
 	# buffer.set_channel_depth(_CHANNEL, VoxelBuffer.DEPTH_8_BIT)
 	# Assuming input is cubic in our use case (it doesn't have to be!)
-	var block_size := int(buffer.get_size().x)
-	var oy := origin_in_voxels.y
+	var block_size: int = int(buffer.get_size().x)
+	var oy: int = origin_in_voxels.y
 	# TODO This hardcodes a cubic block size of 16, find a non-ugly way...
 	# Dividing is a false friend because of negative values
-	var chunk_pos := Vector3i(
+	var chunk_pos: Vector3i = Vector3i(
 		origin_in_voxels.x >> 4,
 		origin_in_voxels.y >> 4,
 		origin_in_voxels.z >> 4)
@@ -97,18 +97,18 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, _unused_lo
 		buffer.fill(DIRT, _CHANNEL)
 
 	else:
-		var rng := RandomNumberGenerator.new()
+		var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 		rng.seed = _get_chunk_seed_2d(chunk_pos)
 		
 		var gx: int
-		var gz := origin_in_voxels.z
+		var gz: int = origin_in_voxels.z
 
 		for z in block_size:
 			gx = origin_in_voxels.x
 
 			for x in block_size:
-				var height := _get_height_at(gx, gz)
-				var relative_height := height - oy
+				var height: int = _get_height_at(gx, gz)
+				var relative_height: int = height - oy
 				
 				# Dirt and grass
 				if relative_height > block_size:
@@ -120,14 +120,14 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, _unused_lo
 					if height >= 0:
 						buffer.set_voxel(GRASS, x, relative_height - 1, z, _CHANNEL)
 						if relative_height < block_size and rng.randf() < 0.2:
-							var foliage = TALL_GRASS
+							var foliage: int = TALL_GRASS
 							if rng.randf() < 0.1:
 								foliage = DEAD_SHRUB
 							buffer.set_voxel(foliage, x, relative_height, z, _CHANNEL)
 				
 				# Water
 				if height < 0 and oy < 0:
-					var start_relative_height := 0
+					var start_relative_height: int = 0
 					if relative_height > 0:
 						start_relative_height = relative_height
 					buffer.fill_area(WATER_FULL,
@@ -144,23 +144,23 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, _unused_lo
 	# Trees
 
 	if origin_in_voxels.y <= _trees_max_y and origin_in_voxels.y + block_size >= _trees_min_y:
-		var voxel_tool := buffer.get_voxel_tool()
-		var structure_instances := [] # Array of [Vector3i, Structure]
+		var voxel_tool: VoxelTool = buffer.get_voxel_tool()
+		var structure_instances: Array = [] # Array of [Vector3i, Structure]
 			
 		_get_tree_instances_in_chunk(chunk_pos, origin_in_voxels, block_size, structure_instances)
 	
 		# Relative to current block
-		var block_aabb := AABB(Vector3(), buffer.get_size() + Vector3i(1, 1, 1))
+		var block_aabb: AABB = AABB(Vector3(), buffer.get_size() + Vector3i(1, 1, 1))
 
 		for dir in _moore_dirs:
-			var ncpos := chunk_pos + dir
+			var ncpos: Vector3i = chunk_pos + dir
 			_get_tree_instances_in_chunk(ncpos, origin_in_voxels, block_size, structure_instances)
 
 		for structure_instance in structure_instances:
 			var pos: Vector3i = structure_instance[0]
 			var structure: Structure = structure_instance[1]
-			var lower_corner_pos := pos - structure.offset
-			var aabb := AABB(lower_corner_pos, structure.voxels.get_size() + Vector3i(1, 1, 1))
+			var lower_corner_pos: Vector3i = pos - structure.offset
+			var aabb: AABB = AABB(lower_corner_pos, structure.voxels.get_size() + Vector3i(1, 1, 1))
 
 			if aabb.intersects(block_aabb):
 				voxel_tool.paste_masked(lower_corner_pos,
@@ -173,17 +173,17 @@ func _generate_block(buffer: VoxelBuffer, origin_in_voxels: Vector3i, _unused_lo
 
 func _get_tree_instances_in_chunk(
 	cpos: Vector3i, offset: Vector3i, chunk_size: int, tree_instances: Array):
-	var rng := RandomNumberGenerator.new()
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = _get_chunk_seed_2d(cpos)
 
 	for i in 4:
-		var pos := Vector3i(rng.randi() % chunk_size, 0, rng.randi() % chunk_size)
+		var pos: Vector3i = Vector3i(rng.randi() % chunk_size, 0, rng.randi() % chunk_size)
 		pos += cpos * chunk_size
 		pos.y = _get_height_at(pos.x, pos.z)
 		
 		if pos.y > 0:
 			pos -= offset
-			var si := rng.randi() % len(_tree_structures)
+			var si: int = rng.randi() % len(_tree_structures)
 			var structure: Structure = _tree_structures[si]
 			tree_instances.append([pos, structure])
 
@@ -199,3 +199,7 @@ static func _get_chunk_seed_2d(cpos: Vector3i) -> int:
 func _get_height_at(x: int, z: int) -> int:
 	var t = 0.5 + 0.5 * _heightmap_noise.get_noise_2d(x, z)
 	return int(HeightmapCurve.sample_baked(t))
+
+
+func set_world_seed(seed: int):
+	_heightmap_noise.seed = seed

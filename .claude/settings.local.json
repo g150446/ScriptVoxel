@@ -15,7 +15,19 @@
       "Bash(git remote add:*)",
       "Bash(git rm:*)",
       "Bash(gh repo edit:*)",
-      "Bash(gh repo view:*)"
+      "Bash(gh repo view:*)",
+      "Bash(git reset:*)",
+      "Bash(pkill:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(./godot.macos.editor.app/Contents/MacOS/Godot:*)",
+      "Bash(tee:*)",
+      "Bash(chmod:*)",
+      "Bash(./run_game_debug.sh:*)",
+      "Bash(./open_editor.sh)",
+      "Bash(grep:*)",
+      "Bash(python3:*)",
+      "Bash(log show:*)"
     ]
   }
 }
