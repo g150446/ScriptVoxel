@@ -43,6 +43,19 @@ fi
 
 print_status "Running on macOS"
 
+# Display system information
+echo -e "\n${BLUE}System Information:${NC}"
+MACOS_VERSION=$(sw_vers -productVersion)
+MACOS_BUILD=$(sw_vers -buildVersion)
+print_info "macOS Version: $MACOS_VERSION (Build $MACOS_BUILD)"
+
+CPU_BRAND=$(sysctl -n machdep.cpu.brand_string)
+CPU_ARCH=$(uname -m)
+print_info "CPU: $CPU_BRAND ($CPU_ARCH)"
+
+AVAILABLE_SPACE=$(df -h . | tail -n 1 | awk '{print $4}')
+print_info "Available disk space: $AVAILABLE_SPACE (Godot build requires ~10GB)"
+
 # Check dependencies
 echo -e "\n${BLUE}Checking dependencies...${NC}"
 
@@ -52,7 +65,16 @@ if ! xcode-select -p &> /dev/null; then
     echo "Please install with: xcode-select --install"
     exit 1
 fi
-print_status "Xcode Command Line Tools installed"
+XCODE_PATH=$(xcode-select -p)
+print_status "Xcode Command Line Tools installed at: $XCODE_PATH"
+
+# Check xcodebuild version
+if command -v xcodebuild &> /dev/null; then
+    XCODE_VERSION=$(xcodebuild -version | head -n 1)
+    print_status "$XCODE_VERSION"
+else
+    print_info "xcodebuild not found (Command Line Tools only installation)"
+fi
 
 # Check Homebrew
 if ! command -v brew &> /dev/null; then
@@ -119,6 +141,7 @@ NUM_CORES=$(sysctl -n hw.ncpu)
 print_info "Using $NUM_CORES CPU cores for compilation"
 
 # Build command
+echo -e "${YELLOW}Starting build at $(date)${NC}"
 scons platform=macos \
     target=editor \
     arch=arm64 \
@@ -126,12 +149,32 @@ scons platform=macos \
     vulkan_sdk_path="" \
     -j$NUM_CORES
 
-if [ $? -ne 0 ]; then
-    print_error "Build failed"
+BUILD_EXIT_CODE=$?
+if [ $BUILD_EXIT_CODE -ne 0 ]; then
+    print_error "Build failed with exit code $BUILD_EXIT_CODE"
+    echo ""
+    echo "Common issues on M4 Macs:"
+    echo "1. Update Command Line Tools: xcode-select --install"
+    echo "2. Accept Xcode license: sudo xcodebuild -license accept"
+    echo "3. Install missing dependencies: brew install pkg-config"
+    echo "4. Check build log above for specific errors"
+    echo ""
+    echo "For detailed logs, run with: bash -x build_godot.sh 2>&1 | tee build_log.txt"
+    exit 1
+fi
+
+# Verify binary was created
+EXPECTED_BINARY="$GODOT_SOURCE_DIR/bin/godot.macos.editor.arm64"
+if [ ! -f "$EXPECTED_BINARY" ]; then
+    print_error "Build reported success but binary not found at: $EXPECTED_BINARY"
+    echo "Available files in bin/:"
+    ls -lh "$GODOT_SOURCE_DIR/bin/" || echo "bin/ directory not found"
     exit 1
 fi
 
 print_status "Build completed successfully!"
+echo -e "${YELLOW}Build finished at $(date)${NC}"
+print_info "Binary size: $(du -sh "$EXPECTED_BINARY" | cut -f1)"
 
 # Create .app bundle
 echo -e "\n${BLUE}Creating application bundle...${NC}"
@@ -173,6 +216,17 @@ cat > "$APP_PATH/Contents/Info.plist" << EOF
 </dict>
 </plist>
 EOF
+
+# Verify app bundle was created
+if [ ! -d "$APP_PATH" ]; then
+    print_error "Failed to create application bundle at: $APP_PATH"
+    exit 1
+fi
+
+if [ ! -f "$APP_PATH/Contents/MacOS/Godot" ]; then
+    print_error "Application bundle created but executable missing"
+    exit 1
+fi
 
 print_status "Application bundle created: $APP_PATH"
 
