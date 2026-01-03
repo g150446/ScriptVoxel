@@ -53,6 +53,10 @@ func execute_code(code: String):
 
 	var result = null
 
+	# Execute in a way that ensures _is_executing is always reset
+	@warning_ignore("unused_variable")
+	var error_occurred = false
+
 	# Try to use py4godot Python executor first
 	if _python_executor and _python_executor.has_method("execute_code"):
 		result = _python_executor.execute_code(code)
@@ -64,7 +68,10 @@ func execute_code(code: String):
 		execution_finished.emit()
 		return
 
-	if result.has("success") and result.success:
+	# Always reset executing flag and emit finished signal
+	_is_executing = false
+
+	if result and result.has("success") and result.success:
 		# Print any output
 		if result.has("output"):
 			for line in result.output:
@@ -72,10 +79,11 @@ func execute_code(code: String):
 					output_printed.emit(line)
 	else:
 		# Handle error
-		if result.has("error"):
+		if result and result.has("error"):
 			execution_error.emit(result.error)
+		else:
+			execution_error.emit("Unknown execution error")
 
-	_is_executing = false
 	execution_finished.emit()
 
 
