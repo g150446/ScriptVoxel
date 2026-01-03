@@ -43,3 +43,10 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# GUT temporary files
+project/addons/.gut_temp/
+
+# Test output files
+.gut_editor_config.json
+.gut/

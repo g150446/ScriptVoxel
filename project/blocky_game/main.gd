@@ -30,7 +30,11 @@ func _on_main_menu_singleplayer_requested():
 	_game = BlockyGameScene.instantiate()
 	_game.set_network_mode(BlockyGame.NETWORK_MODE_SINGLEPLAYER)
 	add_child(_game)
-	
+
+	# クイックプレイ: セーブスロットなし、デフォルトシード
+	# _ready()ではキャラクターがスポーンされないため、明示的に初期化を呼ぶ
+	_game.start_new_world(0, "Quick Play", 0)
+
 	_main_menu.hide()
 	_logger.debug("Quick started new game (no save slot)")
 
@@ -50,11 +54,15 @@ func _on_main_menu_connect_to_server_requested(ip: String, port: int):
 func _on_main_menu_host_server_requested(port: int):
 	if _upnp_helper != null and not _upnp_helper.is_setup():
 		_upnp_helper.setup(port, PackedStringArray(["UDP"]), "VoxelBlockyGame", 20 * 60)
-	
+
 	_game = BlockyGameScene.instantiate()
 	_game.set_port(port)
 	_game.set_network_mode(BlockyGame.NETWORK_MODE_HOST)
 	add_child(_game)
+
+	# HOSTモードでもワールド初期化が必要
+	# デフォルトのシードでワールドを作成
+	_game.start_new_world(0, "Multiplayer Server", 0)
 
 	_main_menu.hide()
 
