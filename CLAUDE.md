@@ -2,6 +2,29 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 言語設定 / Language Settings
+
+**重要: ユーザーが日本語で指示した場合、すべての応答を日本語で返すこと。**
+
+以下のすべてを日本語で記述する：
+
+- プラン作成・タスク分解
+- コードの説明
+- コードコメント
+- エラーメッセージ
+- 提案・推奨事項
+- 進捗報告
+
+## Language Preference
+
+When the user communicates in Japanese:
+
+- Create plans and task breakdowns in Japanese
+- Respond in Japanese
+- Provide code explanations in Japanese
+- Write comments in Japanese
+- Keep all documentation in Japanese
+
 ## Project Overview
 
 This is a demo/test suite for the Godot Voxel module, showcasing various voxel terrain and gameplay systems. The project contains multiple independent demo scenes demonstrating different capabilities of the C++ voxel module through GDScript implementations.

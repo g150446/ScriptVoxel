@@ -59,14 +59,14 @@ func move_down(distance: float = 1.0):
 func turn_left(degrees: float = 90.0):
 	"""Queue a left turn command"""
 	_turn_queue.append({
-		"degrees": -deg_to_rad(degrees)
+		"degrees": deg_to_rad(degrees)  # 正の値 = 反時計回り（左回転）
 	})
 
 
 func turn_right(degrees: float = 90.0):
 	"""Queue a right turn command"""
 	_turn_queue.append({
-		"degrees": deg_to_rad(degrees)
+		"degrees": -deg_to_rad(degrees)  # 負の値 = 時計回り（右回転）
 	})
 
 

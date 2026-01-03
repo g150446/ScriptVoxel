@@ -115,18 +115,13 @@ func _ready():
 
 	if _network_mode == NETWORK_MODE_HOST or _network_mode == NETWORK_MODE_SINGLEPLAYER:
 		add_child(RandomTicks.new())
-	
+
 		var water_updater: WaterUpdater = WaterUpdater.new()
 		# Current code grabs this node by name, so must be named for now...
 		water_updater.name = "Water"
 		add_child(water_updater)
 
-		_spawn_character(SERVER_PEER_ID, Vector3(0, 64, 0))
-
-		# SINGLEPLAYER ONLY: Spawn programmable agent and code editor
-		if _network_mode == NETWORK_MODE_SINGLEPLAYER:
-			_spawn_programmable_agent(Vector3(5, 64, 0))
-			_setup_code_editor()
+		# キャラクタースポーンは_initialize_gameplay()で実行されます
 
 
 func _on_connected_to_server():
@@ -270,30 +265,66 @@ func _collect_world_data() -> Dictionary:
 	}
 
 
+func _clear_world_state():
+	"""既存のキャラクターやエンティティをクリアする"""
+	# 既存のキャラクターをすべて削除
+	for child in _characters_container.get_children():
+		child.queue_free()
+
+	# Godotがノードを完全に削除するまで待つ
+	await get_tree().process_frame
+
+	_logger.debug("World state cleared")
+
+
+func _initialize_gameplay():
+	"""ワールド作成後またはロード後に呼ばれる初期化処理"""
+	# キャラクタースポーン
+	var character: Node3D = _spawn_character(SERVER_PEER_ID, Vector3(0, 64, 0))
+	if character == null:
+		_logger.error("Failed to spawn player character")
+		return
+
+	# シングルプレイヤーのみ: Python agentとコードエディタ
+	if _network_mode == NETWORK_MODE_SINGLEPLAYER:
+		_spawn_programmable_agent(Vector3(5, 64, 0))
+		_setup_code_editor()
+
+	_logger.debug("Gameplay initialized successfully")
+
+
 func start_new_world(slot: int, world_name: String, seed: int):
 	_current_save_slot = slot
 	_world_name = world_name
-	
+
+	# ジェネレーターのシード設定
 	var generator: VoxelGeneratorScript = _terrain.get_generator()
 	if generator and "set_world_seed" in generator:
 		generator.set_world_seed(seed)
-	
-	_spawn_character(SERVER_PEER_ID, Vector3(0, 64, 0))
+
+	# ゲームプレイ要素の初期化
+	_initialize_gameplay()
 
 func load_world_save(slot: int):
 	var world_data: Dictionary = _world_manager.load_world(slot)
 	if not world_data.has("world_name"):
 		_logger.error(str("Failed to load world from slot ", slot))
 		return
-	
+
+	# 既存のワールド状態をクリア
+	await _clear_world_state()
+
 	_current_save_slot = slot
 	_world_name = world_data.get("world_name", "")
-	
+
+	# ジェネレーターシード設定
 	var generator_seed: int = world_data.get("generation", {}).get("seed", 0)
 	var generator: VoxelGeneratorScript = _terrain.get_generator()
 	if generator and "set_world_seed" in generator:
 		generator.set_world_seed(generator_seed)
-	
+
+	# プレイヤーデータから復元
+	var players_loaded: int = 0
 	for player_data in world_data.get("players", []):
 		var player_id: int = player_data.get("id", 1)
 		var pos: Vector3 = Vector3(
@@ -302,14 +333,31 @@ func load_world_save(slot: int):
 			player_data.get("position", {}).get("z", 0)
 		)
 		var character: Node3D = _spawn_character(player_id, pos)
-		
+
+		if character == null:
+			_logger.error(str("Failed to spawn character ", player_id))
+			continue
+
+		players_loaded += 1
+
+		# インベントリ復元
 		if player_data.has("inventory"):
 			var inventory: Node = character.get_node_or_null("Inventory")
 			if inventory and inventory.has_method("clear"):
 				inventory.clear()
 			# TODO: Restore inventory items once inventory serialization is implemented
-	
-	_logger.debug(str("World loaded from slot ", slot))
+
+	# プレイヤーがロードされなかった場合はデフォルトスポーン
+	if players_loaded == 0:
+		_logger.debug("No player data found, spawning at default position")
+		_initialize_gameplay()
+	else:
+		# シングルプレイヤーのみ: Python agentとコードエディタ
+		if _network_mode == NETWORK_MODE_SINGLEPLAYER:
+			_spawn_programmable_agent(Vector3(5, 64, 0))
+			_setup_code_editor()
+
+	_logger.debug(str("World loaded from slot ", slot, ", ", players_loaded, " player(s) restored"))
 
 
 func quick_save():

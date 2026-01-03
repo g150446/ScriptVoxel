@@ -202,6 +202,358 @@ if err != OK:
 - [ ] Are errors handled gracefully with user feedback?
 - [ ] Is this tested with different terrain generation seeds?
 
+### Automated Testing with GUT
+
+#### Overview
+
+This project uses [GUT (Godot Unit Test)](https://github.com/bitwes/Gut) addon for automated testing. GUT enables unit and integration testing of GDScript code.
+
+**GUT Installation:**
+- Addon location: `project/addons/gut/`
+- Plugin enabled in `project.godot`
+- Configuration: `project/.gutconfig.json`
+
+#### Test Configuration
+
+**`.gutconfig.json` Settings:**
+```json
+{
+  "dirs": ["test/unit"],           // Test directories
+  "should_exit": true,              // Exit after running tests
+  "should_exit_on_success": true,   // Exit even if all tests pass
+  "include_subdirs": true,          // Search subdirectories
+  "prefix": "test_",                // Test file prefix
+  "suffix": ".gd"                   // Test file suffix
+}
+```
+
+#### Writing Tests
+
+**Test File Naming:**
+- Must start with `test_` prefix (e.g., `test_agent_controller.gd`)
+- Must end with `.gd` suffix
+- Place in `project/test/unit/` directory
+
+**Basic Test Structure:**
+```gdscript
+extends GutTest
+
+# Load the script to test
+var MyClass = load("res://path/to/my_class.gd")
+var instance = null
+
+# Runs before each test
+func before_each():
+    instance = MyClass.new()
+
+# Runs after each test
+func after_each():
+    if instance:
+        instance.free()
+    instance = null
+
+# Test methods must start with "test_"
+func test_basic_functionality():
+    # Arrange
+    var expected = 42
+
+    # Act
+    var result = instance.some_method()
+
+    # Assert
+    assert_eq(result, expected, "Result should equal expected value")
+
+func test_with_mocks():
+    # Create mock objects
+    var mock_node = double(Node).new()
+    stub(mock_node, 'some_method').to_return(123)
+
+    # Use the mock
+    var result = mock_node.some_method()
+
+    # Verify
+    assert_called(mock_node, 'some_method')
+    assert_eq(result, 123)
+```
+
+**Common Assertions:**
+```gdscript
+assert_eq(actual, expected, "message")           # Equality
+assert_ne(actual, unexpected, "message")         # Not equal
+assert_true(value, "message")                    # Boolean true
+assert_false(value, "message")                   # Boolean false
+assert_gt(a, b, "message")                       # Greater than
+assert_lt(a, b, "message")                       # Less than
+assert_almost_eq(a, b, tolerance, "message")     # Approximately equal
+assert_string_contains(string, substring, "msg") # String contains
+assert_called(mock, 'method_name', [args])       # Mock was called
+```
+
+**Mocking and Stubbing:**
+```gdscript
+# Create a mock object
+var mock_object = double(Node).new()
+
+# Stub a method to return a value
+stub(mock_object, 'method_name').to_return(42)
+
+# Stub a method to do nothing
+stub(mock_object, 'method_name').to_do_nothing()
+
+# Stub a method with conditional return
+stub(mock_object, 'get_node').to_return(mock_child).when_passed('ChildName')
+
+# Verify method was called
+assert_called(mock_object, 'method_name', [arg1, arg2])
+
+# Get call count
+var count = get_call_count(mock_object, 'method_name')
+```
+
+**Using autofree for cleanup:**
+```gdscript
+func test_with_autofree():
+    # autofree() automatically frees the object after the test
+    var node = autofree(Node.new())
+
+    # add_child_autofree() adds and auto-frees the child
+    var child = Node.new()
+    add_child_autofree(child)
+```
+
+#### Running Tests from Command Line
+
+**Run all tests:**
+```bash
+cd project
+../godot.macos.editor.app/Contents/MacOS/Godot --headless --path . --script res://addons/gut/gut_cmdln.gd
+```
+
+**Run specific test file:**
+```bash
+../godot.macos.editor.app/Contents/MacOS/Godot --headless --path . --script res://addons/gut/gut_cmdln.gd -gtest=test_agent_controller.gd
+```
+
+**Run tests in specific directory:**
+```bash
+../godot.macos.editor.app/Contents/MacOS/Godot --headless --path . --script res://addons/gut/gut_cmdln.gd -gdir=test/unit
+```
+
+**Additional options:**
+```bash
+# Verbose output
+-gverbose
+
+# Select specific test method
+-gtest=test_agent_controller.gd -gunit_test_name=test_turn_right_direction
+
+# Generate test report
+-gopacity=100
+```
+
+#### Running Tests from Editor
+
+1. Open Godot Editor
+2. Click on "GUT" panel (bottom of editor)
+3. Click "Run All" to run all tests
+4. Or select specific test file and click "Run Selected"
+
+#### Test Examples
+
+**Example 1: Testing a Simple Class**
+```gdscript
+# test/unit/test_simple_executor.gd
+extends GutTest
+
+var SimpleExecutor = load("res://blocky_game/agent/simple_executor.gd")
+var executor = null
+var mock_controller = null
+
+func before_each():
+    mock_controller = double(Node).new()
+    mock_agent = double(Node).new()
+    stub(mock_agent, 'get_node').to_return(mock_controller).when_passed('AgentController')
+
+    executor = SimpleExecutor.new()
+    executor.set_agent(mock_agent)
+
+func test_for_loop_basic():
+    var code = """for i in range(3):
+    agent.move("forward", 1)"""
+
+    stub(mock_controller, 'move_forward').to_do_nothing()
+    var result = executor.execute_code(code)
+
+    assert_true(result.success)
+    assert_eq(get_call_count(mock_controller, 'move_forward'), 3)
+```
+
+**Example 2: Testing Node3D with Physics**
+```gdscript
+# test/unit/test_agent_controller.gd
+extends GutTest
+
+var AgentController = load("res://blocky_game/agent/agent_controller.gd")
+var controller = null
+var mock_parent = null
+
+func before_each():
+    # Create parent node in scene tree
+    mock_parent = Node3D.new()
+    add_child_autofree(mock_parent)
+
+    # Create controller as child
+    controller = autofree(AgentController.new())
+    mock_parent.add_child(controller)
+
+    # Initialize state
+    controller._rotation_y = 0.0
+
+func test_turn_right_direction():
+    controller.turn_right(90.0)
+    controller._physics_process(0.016)  # Simulate one frame
+
+    # Y rotation should be negative (clockwise)
+    assert_lt(controller._rotation_y, 0.0)
+    assert_almost_eq(controller._rotation_y, -PI/2, 0.01)
+```
+
+#### Common Testing Issues
+
+**Issue 1: Test file not found**
+```
+[ERROR]: Could not find script: my_test.gd
+```
+**Solution:** Ensure test file starts with `test_` prefix and is in `test/unit/` directory.
+
+**Issue 2: Node not in scene tree**
+```
+ERROR: Cannot call get_node() on a node that is not inside the scene tree
+```
+**Solution:** Use `add_child_autofree()` to add nodes to the scene tree:
+```gdscript
+func before_each():
+    var node = Node.new()
+    add_child_autofree(node)  # Now in scene tree
+```
+
+**Issue 3: Memory leaks from tests**
+```
+WARNING: ObjectDB instances leaked at exit
+```
+**Solution:** Use `autofree()` or properly free objects in `after_each()`:
+```gdscript
+func after_each():
+    if my_object:
+        my_object.free()
+    my_object = null
+```
+
+**Issue 4: Mock not working as expected**
+```
+[Failed]: Expected method to be called but it wasn't
+```
+**Solution:** Verify stub is set up before the code under test runs:
+```gdscript
+# WRONG - stub after execution
+var result = my_obj.call_method()
+stub(my_obj, 'call_method').to_return(42)
+
+# CORRECT - stub before execution
+stub(my_obj, 'call_method').to_return(42)
+var result = my_obj.call_method()
+```
+
+**Issue 5: Tests pass individually but fail when run together**
+**Solution:** Ensure proper cleanup in `after_each()` and avoid global state:
+```gdscript
+func after_each():
+    # Reset all state
+    if instance:
+        instance.free()
+    instance = null
+    # Clear any singletons if modified
+```
+
+#### Testing Best Practices
+
+1. **Test file organization:**
+   - One test file per source file (e.g., `agent_controller.gd` → `test_agent_controller.gd`)
+   - Group related tests in the same file
+   - Use descriptive test method names
+
+2. **Test naming:**
+   ```gdscript
+   # Good names
+   func test_turn_right_rotates_clockwise():
+   func test_move_forward_with_negative_distance():
+   func test_jump_when_grounded():
+
+   # Bad names
+   func test_1():
+   func test_stuff():
+   func test_agent():
+   ```
+
+3. **Arrange-Act-Assert pattern:**
+   ```gdscript
+   func test_something():
+       # Arrange - set up test data
+       var input = 5
+       var expected = 10
+
+       # Act - execute the code under test
+       var result = my_function(input)
+
+       # Assert - verify the result
+       assert_eq(result, expected)
+   ```
+
+4. **Test one thing per test:**
+   ```gdscript
+   # Good - focused test
+   func test_turn_right_direction():
+       controller.turn_right(90.0)
+       assert_lt(controller._rotation_y, 0.0)
+
+   # Bad - testing too many things
+   func test_all_movements():
+       controller.turn_right(90.0)
+       controller.move_forward(1.0)
+       controller.jump()
+       # Too much in one test!
+   ```
+
+5. **Use mocks for external dependencies:**
+   ```gdscript
+   # Instead of requiring actual terrain node
+   var mock_terrain = double(VoxelTerrain).new()
+   stub(mock_terrain, 'get_voxel_tool').to_return(mock_voxel_tool)
+   ```
+
+#### Integration with CI/CD
+
+When setting up continuous integration:
+
+```bash
+# In CI script (e.g., GitHub Actions, GitLab CI)
+#!/bin/bash
+cd project
+godot --headless --path . --script res://addons/gut/gut_cmdln.gd
+EXIT_CODE=$?
+
+# GUT returns 0 if all tests pass, non-zero otherwise
+exit $EXIT_CODE
+```
+
+#### Existing Test Files
+
+Current test files in the repository:
+- `project/test/unit/simple_executor_test.gd` - Tests for Python-like command executor
+- `project/test/unit/test_agent_controller.gd` - Tests for agent movement and rotation
+
+Reference these files for examples of testing patterns used in this project.
+
 ### Common Pitfalls
 
 #### DO NOT
